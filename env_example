@@ -1,0 +1,4 @@
+APP_VERSION= # Add version of bot
+BOT_TOKEN= # Add bot token without quotes
+NFTPORT_KEY= # Add nftport apikey
+NODE_ENV=production # Update node environment

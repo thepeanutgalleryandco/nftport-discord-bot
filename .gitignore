@@ -1,0 +1,6 @@
+# Files
+.env
+test.txt
+
+# Directories
+node_modules/

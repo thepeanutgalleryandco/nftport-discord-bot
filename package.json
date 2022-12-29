@@ -1,0 +1,24 @@
+{
+  "name": "nftport-discord-bot",
+  "description": "",
+  "main": "bot.js",
+  "scripts": {
+    "dev": "nodemon bot.js",
+    "start": "node bot.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "eslint": "^8.24.0",
+    "eslint-config-airbnb-base": "^15.0.0",
+    "eslint-plugin-import": "^2.26.0",
+    "nodemon": "^2.0.20"
+  },
+  "dependencies": {
+    "console-stamp": "^3.1.0",
+    "dotenv": "^16.0.3",
+    "eris": "^0.17.1",
+    "node-fetch": "^2.6.7"
+  }
+}

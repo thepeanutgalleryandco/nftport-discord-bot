@@ -1,0 +1,9 @@
+version: '3.7'
+services:
+
+  nftport-discord-bot:
+    build: 
+      context: ./
+      dockerfile: dockerfile
+    image: thepeanutgalleryandco/nftport-discord-bot:${APP_VERSION}
+    container_name: nftport-discord-bot

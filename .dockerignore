@@ -1,0 +1,11 @@
+./node_modules/
+./.git/
+
+./package-lock.json
+./npm-debug.log
+./dockerfile
+./docker-compose.yml
+./.dockerignore
+./.gitignore
+./env_example
+./TextDecoderStream.txt
