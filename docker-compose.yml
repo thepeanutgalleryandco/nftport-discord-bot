@@ -1,9 +1,24 @@
 version: '3.7'
 services:
 
+  nftport-discord-redis:  
+    image: redis
+    container_name: nftport-discord-redis
+    ports:
+      - 6400:6379
+    volumes:
+      - nftport-discord-redis-data:/data
+
   nftport-discord-bot:
     build: 
       context: ./
       dockerfile: dockerfile
     image: thepeanutgalleryandco/nftport-discord-bot:${APP_VERSION}
     container_name: nftport-discord-bot
+    links:
+      - nftport-discord-redis
+    depends_on:
+      - nftport-discord-redis
+
+volumes:
+  nftport-discord-redis-data:

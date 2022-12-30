@@ -2,3 +2,7 @@ APP_VERSION= # Add version of bot
 BOT_TOKEN= # Add bot token without quotes
 NFTPORT_KEY= # Add nftport apikey
 NODE_ENV=production # Update node environment
+REDIS_HOST= # Add Redis Host Without Quotes
+REDIS_PASSWORD= # Add Redis Password Without Quotes
+REDIS_PORT= # Add Redis Port Without Quotes
+REDIS_USERNAME= # Add Redis Username Without Quotes

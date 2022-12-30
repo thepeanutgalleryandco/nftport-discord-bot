@@ -3,6 +3,7 @@ require('console-stamp')(console, {
   format: ':label :date(yyyy/mm/dd HH:MM:ss.l,true)',
 });
 
+const { getCache, setCache } = require('./modules/redisCache');
 const eris = require('eris');
 const fetch = require('node-fetch');
 
@@ -12,7 +13,6 @@ const commandHandlerForCommandName = {
   DM: {},
   Channel: {},
 };
-const userData = [];
 
 // Function return message to Discord
 function returnMessage(_messageType, _channel, _message) {
@@ -31,7 +31,7 @@ function returnMessage(_messageType, _channel, _message) {
 // Function for adding a contract and chain for a specific server when !addContract is used
 commandHandlerForCommandName.Channel.addcontract = {
   botOwnerOnly: true,
-  execute: (_msg, _messageType, _args) => {
+  execute: async (_msg, _messageType, _args) => {
     const contractChain = _args[0].toLocaleLowerCase();
     const contractAddress = _args[1];
     const url = contractChain === 'ethereum' || contractChain === 'polygon'
@@ -57,9 +57,10 @@ commandHandlerForCommandName.Channel.addcontract = {
 // Function for removing a contract and chain for a specific server when !removeContract is used
 commandHandlerForCommandName.Channel.removecontract = {
   botOwnerOnly: true,
-  execute: (_msg, _messageType, _args) => {
+  execute: async (_msg, _messageType, _args) => {
     const contractChain = _args[0].toLowerCase();
     const contractAddress = _args[1];
+    let monitoredContracts = JSON.parse(await getCache(_msg.channel.guild.id));
 
     console.log(
       `ServerID: ${_msg.channel.guild.id} ChannelID:${_msg.channel.id}  Removing contract ${contractAddress} on ${contractChain} chain`,
@@ -67,8 +68,8 @@ commandHandlerForCommandName.Channel.removecontract = {
 
     // Check if contract and address combination can be found in the server's list of contracts
     if (
-      userData[_msg.channel.guild.id] === undefined
-      || userData[_msg.channel.guild.id].filter((elem) => (
+      monitoredContracts === null
+      || monitoredContracts.filter((elem) => (
         elem.contractAddress === contractAddress
           && elem.contractChain === contractChain
       )).length === 0
@@ -79,12 +80,15 @@ commandHandlerForCommandName.Channel.removecontract = {
         'Contract not found. Please use !help to see command to view all contracts available.',
       );
     }
-    userData[_msg.channel.guild.id] = userData[_msg.channel.guild.id].filter(
+
+    monitoredContracts = monitoredContracts.filter(
       (elem) => !(
         elem.contractAddress === contractAddress
             && elem.contractChain === contractChain
       ),
     );
+
+    await setCache(_msg.channel.guild.id, monitoredContracts);
 
     return returnMessage(
       _messageType,
@@ -98,7 +102,7 @@ commandHandlerForCommandName.Channel.removecontract = {
 // Function for getting help for Channel
 commandHandlerForCommandName.Channel.help = {
   botOwnerOnly: false,
-  execute: (_msg, _messageType, _args) => {
+  execute: async (_msg, _messageType, _args) => {    
     //if (_msg.channel.guild.ownerID === _msg.author.id) {
       console.log(`ServerID: ${_msg.channel.guild.id} ChannelID:${_msg.channel.id} Fetching help menu for owner`);
 
@@ -174,20 +178,21 @@ commandHandlerForCommandName.Channel.help = {
 // Function for viewing available contracts and chains for a specific server when !viewContracts is used
 commandHandlerForCommandName.Channel.viewcontracts = {
   botOwnerOnly: false,
-  execute: (_msg, _messageType, _args) => {
+  execute: async (_msg, _messageType, _args) => {
     console.log(
       `ServerID: ${_msg.channel.guild.id} ChannelID:${_msg.channel.id} Fetching contracts available to ${_msg.channel.guild.id}`,
     );
 
     const embed = {};
     const fields = [];
+    const monitoredContracts = JSON.parse(await getCache(_msg.channel.guild.id));
 
     // Check if the server can be found in the list and if any contracts have been configured
     if (
-      userData[_msg.channel.guild.id] !== undefined
-      && userData[_msg.channel.guild.id].length > 0
+      monitoredContracts !== null
+      && monitoredContracts.length > 0
     ) {
-      for (const contract of userData[_msg.channel.guild.id]) {
+      for (const contract of monitoredContracts) {
         fields.push({
           name: 'Name',
           value: contract.contractName,
@@ -223,10 +228,11 @@ commandHandlerForCommandName.Channel.viewcontracts = {
 // Function for checking rarity of a token on a contract and chain for a specific server when !rarity is used
 commandHandlerForCommandName.Channel.rarity = {
   botOwnerOnly: false,
-  execute: (_msg, _messageType, _args) => {
+  execute: async (_msg, _messageType, _args) => {
     const contractChain = _args[0].toLowerCase();
     const contractAddress = _args[1];
     const tokenID = _args[2];
+    const monitoredContracts = JSON.parse(await getCache(_msg.channel.guild.id));
 
     console.log(
       `ServerID: ${_msg.channel.guild.id} ChannelID:${_msg.channel.id}  Fetching rarity for tokenID ${tokenID} for contract ${contractAddress} on ${contractChain} chain`,
@@ -246,8 +252,8 @@ commandHandlerForCommandName.Channel.rarity = {
 
     // Check if contract and address combination can be found in the server's list of contracts
     if (
-      userData[_msg.channel.guild.id] === undefined
-      || userData[_msg.channel.guild.id].filter((elem) => (
+      monitoredContracts === null
+      || monitoredContracts.filter((elem) => (
         elem.contractAddress === contractAddress
           && elem.contractChain === contractChain
       )).length === 0
@@ -280,9 +286,10 @@ commandHandlerForCommandName.Channel.rarity = {
 // Function for checking sales stats of a contract and chain for a specific server when !salesstats is used
 commandHandlerForCommandName.Channel.salesstats = {
   botOwnerOnly: false,
-  execute: (_msg, _messageType, _args) => {
+  execute: async (_msg, _messageType, _args) => {
     const contractChain = _args[0].toLowerCase();
     const contractAddress = _args[1];
+    const monitoredContracts = JSON.parse(await getCache(_msg.channel.guild.id));
     const url = contractChain === 'ethereum' || contractChain === 'polygon'
       ? `https://api.nftport.xyz/v0/transactions/stats/${contractAddress}?chain=${contractChain}`
       : `https://api.nftport.xyz/v0/solana/transactions/stats/${contractAddress}`;
@@ -293,8 +300,8 @@ commandHandlerForCommandName.Channel.salesstats = {
 
     // Check if contract and address combination can be found in the server's list of contracts
     if (
-      userData[_msg.channel.guild.id] === undefined
-      || userData[_msg.channel.guild.id].filter((elem) => (
+      monitoredContracts === null
+      || monitoredContracts.filter((elem) => (
         elem.contractAddress === contractAddress
           && elem.contractChain === contractChain
       )).length === 0
@@ -403,14 +410,16 @@ bot.on('messageCreate', async (msg) => {
     ) {
       if (commandResponse.response === 'OK') {
         if (commandName === 'addcontract') {
+          const monitoredContracts = JSON.parse(await getCache(msg.channel.guild.id));
+
           /*
             Check if server / guildID exists
               If not, add a new key and array value with the contract object
               If it exists, check if the contract object already exists
               If it does not exist, then add it to the array, otherwise skip over it as it already exists
-          */
-          userData[msg.channel.guild.id] === undefined
-            ? userData[msg.channel.guild.id] = [
+          */              
+          if (monitoredContracts === null) {
+            await setCache(msg.channel.guild.id,[
               {
                 contractAddress: args[1],
                 contractChain: args[0],
@@ -419,20 +428,25 @@ bot.on('messageCreate', async (msg) => {
                       ? commandResponse.contract.name
                       : commandResponse.nfts[0].metadata.collection.name,
               },
-            ]
-            : userData[msg.channel.guild.id].filter((elem) => (
+            ]);
+          } else {
+            const monitoredContractCount = JSON.parse(await getCache(msg.channel.guild.id)).filter((elem) => (
               elem.contractAddress === args[1]
                   && elem.contractChain === args[0]
-            )).length === 0
-              ? userData[msg.channel.guild.id].push({
+            )).length;
+
+            if (monitoredContractCount === 0) {
+              monitoredContracts.push({
                 contractAddress: args[1],
                 contractChain: args[0],
                 contractName:
                   args[0] === 'ethereum' || args[0] === 'polygon'
                     ? commandResponse.contract.name
                     : commandResponse.nfts[0].metadata.collection.name,
-              })
-              : null;
+              });              
+                  await setCache(msg.channel.guild.id, monitoredContracts);
+            }
+          }
 
           return returnMessage(
             messageType,
@@ -561,11 +575,26 @@ bot.on('messageCreate', async (msg) => {
           'Invalid Contract Address',
         );
       } else if (commandResponse.error.code === 'not_found') {
-        return returnMessage(
-          messageType,
-          msg.channel,
-          'Contract Address Does Not Exist On Selected Chain',
-        );
+
+        if (commandName === 'addcontract') {
+          return returnMessage(
+            messageType,
+            msg.channel,
+            'Contract Address Does Not Exist On Selected Chain',
+          );
+        } else if (commandName === 'rarity') {
+          return returnMessage(
+            messageType,
+            msg.channel,
+            'TokenID Does Not Exist',
+          );
+        } else if (commandName === 'salesstats') {
+          return returnMessage(
+            messageType,
+            msg.channel,
+            `Sales stats can't be found for contract and chain combination. Please contact NFTPort support.`,
+          );
+        }
       } else if (commandResponse.error.code === 'contract_not_available') {
         return returnMessage(
           messageType,

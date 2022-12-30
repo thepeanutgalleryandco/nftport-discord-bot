@@ -27,6 +27,9 @@ Copy env_example to .env and fill in the fields
 ## Build
 docker-compose build
 
+## Create network
+docker network create nftport-discord-network
+
 ## Push
 docker push thepeanutgalleryandco/nftport-discord-bot:[tag_number]
 
@@ -34,4 +37,5 @@ docker push thepeanutgalleryandco/nftport-discord-bot:[tag_number]
 docker pull thepeanutgalleryandco/nftport-discord-bot:[tag_number]
 
 ## Running container
-docker run --name nftport-discord-bot -d thepeanutgalleryandco/nftport-discord-bot:[tag_number]
+docker run --name nftport-discord-redis -v /Users/roebou/Documents/GitHub/nftport-discord-bot:/data -p 6400:6379 --network nftport-discord-network -d redis
+docker run --name nftport-discord-bot --network nftport-discord-network -d thepeanutgalleryandco/nftport-discord-bot:[tag_number]
