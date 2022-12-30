@@ -99,8 +99,8 @@ commandHandlerForCommandName.Channel.removecontract = {
 commandHandlerForCommandName.Channel.help = {
   botOwnerOnly: false,
   execute: (_msg, _messageType, _args) => {
-    if (_msg.channel.guild.ownerID === _msg.author.id) {
-      console.log(`ServerID: ${_msg.channel.guild.id} ChannelID:${_msg.channel.id}  Fetching help menu for owner`);
+    //if (_msg.channel.guild.ownerID === _msg.author.id) {
+      console.log(`ServerID: ${_msg.channel.guild.id} ChannelID:${_msg.channel.id} Fetching help menu for owner`);
 
       returnMessage(_messageType, _msg.channel, {
         embed: {
@@ -139,7 +139,7 @@ commandHandlerForCommandName.Channel.help = {
           ],
         },
       });
-    } else {
+    /*} else {
       console.log(`ServerID: ${_msg.channel.guild.id} ChannelID:${_msg.channel.id}  Fetching help menu for public`);
 
       returnMessage(_messageType, _msg.channel, {
@@ -167,7 +167,7 @@ commandHandlerForCommandName.Channel.help = {
           ],
         },
       });
-    }
+    }*/
   },
 };
 
@@ -374,14 +374,15 @@ bot.on('messageCreate', async (msg) => {
     }
 
     // Only allow guild owner to perform admin functions
-    if (commandHandler.botOwnerOnly && !authorIsBotOwner) {
+    /*if (commandHandler.botOwnerOnly && !authorIsBotOwner) {
       return returnMessage(
         messageType,
         msg.channel,
         'You must be the owner of this server to run this command',
       );
     }
-
+    */
+   
     // Separate the command arguments from the command prefix and command name.
     const args = parts.slice(1);
     let commandResponse = {};
