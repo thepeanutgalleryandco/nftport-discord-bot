@@ -21,6 +21,9 @@ commandHandlerForCommandName.Channel.addcontract = {
   execute: async (_interaction, _args) => {
     const contractChain = _args[0].value.toLowerCase();
     const contractAddress = _args[1].value;
+    let monitoredContracts = JSON.parse(
+      await getCache(_interaction.channel.guild.id)
+    );
     const url =
       contractChain === 'ethereum' || contractChain === 'polygon'
         ? `https://api.nftport.xyz/v0/nfts/${contractAddress}?chain=${contractChain}&page_number=1&page_size=50&include=rarity&refresh_metadata=false`
@@ -28,6 +31,13 @@ commandHandlerForCommandName.Channel.addcontract = {
     console.log(
       `ServerID: ${_interaction.channel.guild.id} ChannelID:${_interaction.channel.id} Fetching contract ${contractAddress} on ${contractChain} chain`
     );
+
+    // Check if contract and address combination can be found in the server's list of contracts
+    if (monitoredContracts !== null && monitoredContracts.length > 0) {
+      return _interaction.createMessage(
+        'Already monitoring a contract. First remove the current contract and then add a new one.'
+      );
+    }
 
     return fetch(url, {
       method: 'GET',
@@ -45,35 +55,24 @@ commandHandlerForCommandName.Channel.addcontract = {
 commandHandlerForCommandName.Channel.removecontract = {
   botOwnerOnly: true,
   execute: async (_interaction, _args) => {
-    const contractChain = _args[0].value.toLowerCase();
-    const contractAddress = _args[1].value;
     let monitoredContracts = JSON.parse(
       await getCache(_interaction.channel.guild.id)
     );
 
     console.log(
-      `ServerID: ${_interaction.channel.guild.id} ChannelID:${_interaction.channel.id}  Removing contract ${contractAddress} on ${contractChain} chain`
+      `ServerID: ${_interaction.channel.guild.id} ChannelID:${_interaction.channel.id}  Removing contract.`
     );
 
     // Check if contract and address combination can be found in the server's list of contracts
-    if (
-      monitoredContracts === null ||
-      monitoredContracts.filter(
-        (elem) =>
-          elem.contractAddress === contractAddress &&
-          elem.contractChain === contractChain
-      ).length === 0
-    ) {
-      return _interaction.createMessage(
-        'Contract not found. Please use !help to see command to view all contracts available.'
-      );
+    if (monitoredContracts === null || monitoredContracts.length === 0) {
+      return _interaction.createMessage('No contract configured yet.');
     }
 
     monitoredContracts = monitoredContracts.filter(
       (elem) =>
         !(
-          elem.contractAddress === contractAddress &&
-          elem.contractChain === contractChain
+          elem.contractAddress === monitoredContracts[0].contractAddress &&
+          elem.contractChain === monitoredContracts[0].contractChain
         )
     );
 
@@ -124,7 +123,7 @@ commandHandlerForCommandName.Channel.viewcontracts = {
 
       return _interaction.createMessage({ embed });
     }
-    return _interaction.createMessage('No contracts configured yet.');
+    return _interaction.createMessage('No contract configured yet.');
   },
 };
 
@@ -132,38 +131,17 @@ commandHandlerForCommandName.Channel.viewcontracts = {
 commandHandlerForCommandName.Channel.rarity = {
   botOwnerOnly: false,
   execute: async (_interaction, _args) => {
-    const contractChain = _args[0].value.toLowerCase();
-    const contractAddress = _args[1].value;
-    const tokenID = _args[2].value;
+    const tokenID = _args[0].value;
     const monitoredContracts = JSON.parse(
       await getCache(_interaction.channel.guild.id)
     );
 
     console.log(
-      `ServerID: ${_interaction.channel.guild.id} ChannelID:${_interaction.channel.id}  Fetching rarity for tokenID ${tokenID} for contract ${contractAddress} on ${contractChain} chain`
+      `ServerID: ${_interaction.channel.guild.id} ChannelID:${_interaction.channel.id}  Fetching rarity for tokenID ${tokenID}`
     );
 
-    // Check if chain supports rarity
-    if (contractChain !== 'ethereum') {
-      return {
-        response: 'NOK',
-        error: {
-          status_code: -1,
-          code: 'chain_not_currently_supported',
-          message: 'Chain does not support rarity yet.',
-        },
-      };
-    }
-
     // Check if contract and address combination can be found in the server's list of contracts
-    if (
-      monitoredContracts === null ||
-      monitoredContracts.filter(
-        (elem) =>
-          elem.contractAddress === contractAddress &&
-          elem.contractChain === contractChain
-      ).length === 0
-    ) {
+    if (monitoredContracts === null || monitoredContracts.length === 0) {
       return {
         response: 'NOK',
         error: {
@@ -174,8 +152,20 @@ commandHandlerForCommandName.Channel.rarity = {
       };
     }
 
+    // Check if chain supports rarity
+    if (monitoredContracts[0].contractChain !== 'ethereum') {
+      return {
+        response: 'NOK',
+        error: {
+          status_code: -1,
+          code: 'chain_not_currently_supported',
+          message: 'Chain does not support rarity yet.',
+        },
+      };
+    }
+
     return fetch(
-      `https://api.nftport.xyz/v0/nfts/${contractAddress}/${tokenID}?chain=${contractChain}&refresh_metadata=false&include=rarity`,
+      `https://api.nftport.xyz/v0/nfts/${monitoredContracts[0].contractAddress}/${tokenID}?chain=${monitoredContracts[0].contractChain}&refresh_metadata=false&include=rarity`,
       {
         method: 'GET',
         headers: {
@@ -193,29 +183,16 @@ commandHandlerForCommandName.Channel.rarity = {
 commandHandlerForCommandName.Channel.salesstats = {
   botOwnerOnly: false,
   execute: async (_interaction, _args) => {
-    const contractChain = _args[0].value.toLowerCase();
-    const contractAddress = _args[1].value;
     const monitoredContracts = JSON.parse(
       await getCache(_interaction.channel.guild.id)
     );
-    const url =
-      contractChain === 'ethereum' || contractChain === 'polygon'
-        ? `https://api.nftport.xyz/v0/transactions/stats/${contractAddress}?chain=${contractChain}`
-        : `https://api.nftport.xyz/v0/solana/transactions/stats/${contractAddress}`;
 
     console.log(
-      `ServerID: ${_interaction.channel.guild.id} ChannelID:${_interaction.channel.id}  Fetching sales stats for for contract ${contractAddress} on ${contractChain} chain`
+      `ServerID: ${_interaction.channel.guild.id} ChannelID:${_interaction.channel.id}  Fetching sales stats.`
     );
 
     // Check if contract and address combination can be found in the server's list of contracts
-    if (
-      monitoredContracts === null ||
-      monitoredContracts.filter(
-        (elem) =>
-          elem.contractAddress === contractAddress &&
-          elem.contractChain === contractChain
-      ).length === 0
-    ) {
+    if (monitoredContracts === null || monitoredContracts.length === 0) {
       return {
         response: 'NOK',
         error: {
@@ -225,6 +202,11 @@ commandHandlerForCommandName.Channel.salesstats = {
         },
       };
     }
+
+    const url =
+      contractChain === 'ethereum' || contractChain === 'polygon'
+        ? `https://api.nftport.xyz/v0/transactions/stats/${monitoredContracts[0].contractAddress}?chain=${monitoredContracts[0].contractChain}`
+        : `https://api.nftport.xyz/v0/solana/transactions/stats/${monitoredContracts[0].contractAddress}`;
 
     return fetch(url, {
       method: 'GET',
@@ -286,39 +268,6 @@ bot.once('ready', async (msg) => {
       {
         name: 'removecontract',
         description: 'Remove Contract',
-        options: [
-          {
-            type: 3,
-            name: 'chain',
-            description: 'Chain for the contract address',
-            required: true,
-            choices: [
-              {
-                name: 'Ethereum',
-                description: 'The Ethereum Chain',
-                value: 'ethereum',
-              },
-              {
-                name: 'Polygon',
-                description: 'The Polygon Chain',
-                value: 'polygon',
-              },
-              {
-                name: 'Solana',
-                description: 'The Solana Chain',
-                value: 'solana',
-              },
-            ],
-          },
-          {
-            type: 3,
-            name: 'contractaddress',
-            description: 'The contract address to be removed',
-            required: true,
-            min_length: 20,
-            max_length: 100,
-          },
-        ],
       },
       1
     );
@@ -333,38 +282,6 @@ bot.once('ready', async (msg) => {
         name: 'rarity',
         description: 'Rarity of NFT / Token',
         options: [
-          {
-            type: 3,
-            name: 'chain',
-            description: 'Chain to fetch the rarity information for',
-            required: true,
-            choices: [
-              {
-                name: 'Ethereum',
-                description: 'The Ethereum Chain',
-                value: 'ethereum',
-              },
-              {
-                name: 'Polygon',
-                description: 'The Polygon Chain',
-                value: 'polygon',
-              },
-              {
-                name: 'Solana',
-                description: 'The Solana Chain',
-                value: 'solana',
-              },
-            ],
-          },
-          {
-            type: 3,
-            name: 'contractaddress',
-            description:
-              'The contract address to fetch the rarity information for',
-            required: true,
-            min_length: 20,
-            max_length: 100,
-          },
           {
             type: 3,
             name: 'tokenid',
@@ -382,39 +299,6 @@ bot.once('ready', async (msg) => {
       {
         name: 'salesstats',
         description: 'Sales stats',
-        options: [
-          {
-            type: 3,
-            name: 'chain',
-            description: 'Chain for the contract address',
-            required: true,
-            choices: [
-              {
-                name: 'Ethereum',
-                description: 'The Ethereum Chain',
-                value: 'ethereum',
-              },
-              {
-                name: 'Polygon',
-                description: 'The Polygon Chain',
-                value: 'polygon',
-              },
-              {
-                name: 'Solana',
-                description: 'The Solana Chain',
-                value: 'solana',
-              },
-            ],
-          },
-          {
-            type: 3,
-            name: 'contractaddress',
-            description: 'The contract address to fetch sales stats for',
-            required: true,
-            min_length: 20,
-            max_length: 100,
-          },
-        ],
       },
       1
     );
@@ -459,201 +343,203 @@ bot.on('interactionCreate', async (interaction) => {
     try {
       // Execute the command.
       commandResponse = await commandHandler.execute(interaction, args);
-    } catch (error) {
-      console.log('Error handling command');
-      console.log(error);
-    }
 
-    // Check response from NFTPort for adding a contract
-    if (
-      commandName === 'addcontract' ||
-      commandName === 'rarity' ||
-      commandName === 'salesstats'
-    ) {
+      // Check response from NFTPort for adding a contract
+      if (
+        commandName === 'addcontract' ||
+        commandName === 'rarity' ||
+        commandName === 'salesstats'
+      ) {
+        if (commandResponse.response === 'OK') {
+          if (commandName === 'addcontract') {
+            const monitoredContracts = JSON.parse(
+              await getCache(interaction.channel.guild.id)
+            );
 
-      if (commandResponse.response === 'OK') {
-        if (commandName === 'addcontract') {
-          const monitoredContracts = JSON.parse(
-            await getCache(interaction.channel.guild.id)
-          );
-
-          /*
+            /*
             Check if server / guildID exists
               If not, add a new key and array value with the contract object
               If it exists, check if the contract object already exists
               If it does not exist, then add it to the array, otherwise skip over it as it already exists
           */
-          if (monitoredContracts === null) {
-            await setCache(interaction.channel.guild.id, [
-              {
-                contractAddress: args[1].value,
-                contractChain: args[0].value,
-                contractName:
-                  args[0].value.toLowerCase() === 'ethereum' ||
-                  args[0].value.toLowerCase() === 'polygon'
-                    ? commandResponse.contract.name
-                    : commandResponse.nfts[0].metadata.collection.name,
-              },
-            ]);
-          } else {
-            const monitoredContractCount = JSON.parse(
-              await getCache(interaction.channel.guild.id)
-            ).filter(
-              (elem) =>
-                elem.contractAddress === args[1].value &&
-                elem.contractChain === args[0].value
-            ).length;
+            if (monitoredContracts === null) {
+              await setCache(interaction.channel.guild.id, [
+                {
+                  contractAddress: args[1].value,
+                  contractChain: args[0].value,
+                  contractName:
+                    args[0].value.toLowerCase() === 'ethereum' ||
+                    args[0].value.toLowerCase() === 'polygon'
+                      ? commandResponse.contract.name
+                      : commandResponse.nfts[0].metadata.collection.name,
+                },
+              ]);
+            } else {
+              const monitoredContractCount = JSON.parse(
+                await getCache(interaction.channel.guild.id)
+              ).filter(
+                (elem) =>
+                  elem.contractAddress === args[1].value &&
+                  elem.contractChain === args[0].value
+              ).length;
 
-            if (monitoredContractCount === 0) {
-              monitoredContracts.push({
-                contractAddress: args[1].value,
-                contractChain: args[0].value,
-                contractName:
-                  args[0].value.toLowerCase() === 'ethereum' ||
-                  args[0].value.toLowerCase() === 'polygon'
-                    ? commandResponse.contract.name
-                    : commandResponse.nfts[0].metadata.collection.name,
-              });
-              await setCache(interaction.channel.guild.id, monitoredContracts);
+              if (monitoredContractCount === 0) {
+                monitoredContracts.push({
+                  contractAddress: args[1].value,
+                  contractChain: args[0].value,
+                  contractName:
+                    args[0].value.toLowerCase() === 'ethereum' ||
+                    args[0].value.toLowerCase() === 'polygon'
+                      ? commandResponse.contract.name
+                      : commandResponse.nfts[0].metadata.collection.name,
+                });
+                await setCache(
+                  interaction.channel.guild.id,
+                  monitoredContracts
+                );
+              }
             }
-          }
 
-          return interaction.createMessage(
-            `Successfully added ${
-              args[0].value.toLowerCase() === 'ethereum' ||
-              args[0].value.toLowerCase() === 'polygon'
-                ? commandResponse.contract.name
-                : commandResponse.nfts[0].metadata.collection.name
-            } to monitored contracts`
-          );
-        }
-        if (commandName === 'rarity') {
-          // Check if rarity information is available
-          if (commandResponse.nft.rarity === null) {
             return interaction.createMessage(
-              'Rarity information is not available for this chain, contract address and tokenID combination. Please contract NFTPort team to add rarity information for this contract.'
+              `Successfully added ${
+                args[0].value.toLowerCase() === 'ethereum' ||
+                args[0].value.toLowerCase() === 'polygon'
+                  ? commandResponse.contract.name
+                  : commandResponse.nfts[0].metadata.collection.name
+              } to monitored contracts`
             );
           }
-          const fields = [];
+          if (commandName === 'rarity') {
+            // Check if rarity information is available
+            if (commandResponse.nft.rarity === null) {
+              return interaction.createMessage(
+                'Rarity information is not available for this chain, contract address and tokenID combination. Please contract NFTPort team to add rarity information for this contract.'
+              );
+            }
+            const fields = [];
 
-          // Add non-inline fields
-          fields.push({
-            name: 'Owner',
-            value: commandResponse.owner,
-            inline: false,
-          });
+            // Add non-inline fields
+            fields.push({
+              name: 'Owner',
+              value: commandResponse.owner,
+              inline: false,
+            });
 
-          fields.push({
-            name: 'Collection Size',
-            value: String(commandResponse.nft.rarity.collection_size),
-            inline: false,
-          });
+            fields.push({
+              name: 'Collection Size',
+              value: String(commandResponse.nft.rarity.collection_size),
+              inline: false,
+            });
 
-          fields.push({
-            name: 'Rank',
-            value: String(commandResponse.nft.rarity.rank),
-            inline: false,
-          });
+            fields.push({
+              name: 'Rank',
+              value: String(commandResponse.nft.rarity.rank),
+              inline: false,
+            });
 
-          fields.push({
-            name: 'Score',
-            value: String(commandResponse.nft.rarity.score),
-            inline: false,
-          });
+            fields.push({
+              name: 'Score',
+              value: String(commandResponse.nft.rarity.score),
+              inline: false,
+            });
 
-          fields.push({
-            name: 'Last Updated At',
-            value: commandResponse.nft.rarity.updated_date,
-            inline: false,
-          });
+            fields.push({
+              name: 'Last Updated At',
+              value: commandResponse.nft.rarity.updated_date,
+              inline: false,
+            });
 
-          // Add inline attribute fields
-          if (commandResponse.nft.metadata.attributes !== undefined) {
-            for (const attribute of commandResponse.nft.metadata.attributes) {
+            // Add inline attribute fields
+            if (commandResponse.nft.metadata.attributes !== undefined) {
+              for (const attribute of commandResponse.nft.metadata.attributes) {
+                fields.push({
+                  name: String(attribute.trait_type),
+                  value: String(attribute.value),
+                  inline: true,
+                });
+              }
+            }
+
+            // Create core embed message
+            const embed = {
+              title: `${commandResponse.contract.name} #${commandResponse.nft.token_id}`,
+              fields,
+            };
+
+            // Add image URL if it exists
+            if (commandResponse.nft.cached_file_url !== undefined) {
+              embed.image = {
+                url: commandResponse.nft.cached_file_url,
+              };
+            }
+
+            // Add collection URL if it exists
+            if (
+              commandResponse.contract.metadata.cached_thumbnail_url !==
+              undefined
+            ) {
+              embed.author = {
+                name: commandResponse.contract.name,
+                icon_url:
+                  commandResponse.contract.metadata.cached_thumbnail_url,
+              };
+            }
+
+            return interaction.createMessage({
+              embed,
+            });
+          }
+          if (commandName === 'salesstats') {
+            const fields = [];
+
+            Object.entries(commandResponse.statistics).forEach((statistic) => {
               fields.push({
-                name: String(attribute.trait_type),
-                value: String(attribute.value),
+                name: String(statistic[0]),
+                value: String(statistic[1] === null ? 'N/A' : statistic[1]),
                 inline: true,
               });
-            }
-          }
-
-          // Create core embed message
-          const embed = {
-            title: `${commandResponse.contract.name} #${commandResponse.nft.token_id}`,
-            fields,
-          };
-
-          // Add image URL if it exists
-          if (commandResponse.nft.cached_file_url !== undefined) {
-            embed.image = {
-              url: commandResponse.nft.cached_file_url,
-            };
-          }
-
-          // Add collection URL if it exists
-          if (
-            commandResponse.contract.metadata.cached_thumbnail_url !== undefined
-          ) {
-            embed.author = {
-              name: commandResponse.contract.name,
-              icon_url: commandResponse.contract.metadata.cached_thumbnail_url,
-            };
-          }
-
-          return interaction.createMessage({
-            embed,
-          });
-        }
-        if (commandName === 'salesstats') {
-          const fields = [];
-
-          Object.entries(commandResponse.statistics).forEach((statistic) => {
-            fields.push({
-              name: String(statistic[0]),
-              value: String(statistic[1] === null ? 'N/A' : statistic[1]),
-              inline: true,
             });
-          });
 
-          return interaction.createMessage({
-            embed: {
-              title: 'Sales Stats',
-              fields,
-            },
-          });
-        }
-      } else if (commandResponse.error.code === 'invalid_api_key') {
-        return interaction.createMessage('Invalid NFTPort APIKey');
-      } else if (commandResponse.error.code === 'invalid_enumeration') {
-        return interaction.createMessage('Invalid NFTPort Supported Chain');
-      } else if (commandResponse.error.code === 'invalid_address') {
-        return interaction.createMessage('Invalid Contract Address');
-      } else if (commandResponse.error.code === 'not_found') {
-        if (commandName === 'addcontract') {
+            return interaction.createMessage({
+              embed: {
+                title: 'Sales Stats',
+                fields,
+              },
+            });
+          }
+        } else if (commandResponse.error.code === 'invalid_api_key') {
+          return interaction.createMessage('Invalid NFTPort APIKey');
+        } else if (commandResponse.error.code === 'invalid_enumeration') {
+          return interaction.createMessage('Invalid NFTPort Supported Chain');
+        } else if (commandResponse.error.code === 'invalid_address') {
+          return interaction.createMessage('Invalid Contract Address');
+        } else if (commandResponse.error.code === 'not_found') {
+          if (commandName === 'addcontract') {
+            return interaction.createMessage(
+              'Contract Address Does Not Exist On Selected Chain'
+            );
+          } else if (commandName === 'rarity') {
+            return interaction.createMessage('TokenID Does Not Exist');
+          } else if (commandName === 'salesstats') {
+            return interaction.createMessage(
+              `Sales stats can't be found for contract and chain combination. Please contact NFTPort support.`
+            );
+          }
+        } else if (commandResponse.error.code === 'contract_not_available') {
+          return interaction.createMessage('No contract configured yet.');
+        } else if (
+          commandResponse.error.code === 'chain_not_currently_supported'
+        ) {
           return interaction.createMessage(
-            'Contract Address Does Not Exist On Selected Chain'
+            'Rarity is not yet supported for the selected chain'
           );
-        } else if (commandName === 'rarity') {
-          return interaction.createMessage('TokenID Does Not Exist');
-        } else if (commandName === 'salesstats') {
-          return interaction.createMessage(
-            `Sales stats can't be found for contract and chain combination. Please contact NFTPort support.`
-          );
+        } else {
+          console.log(`Other error - ${JSON.stringify(commandResponse)}`);
         }
-      } else if (commandResponse.error.code === 'contract_not_available') {
-        return interaction.createMessage(
-          'Contract not found. Please use !help to see command to view all contracts available.'
-        );
-      } else if (
-        commandResponse.error.code === 'chain_not_currently_supported'
-      ) {
-        return interaction.createMessage(
-          'Rarity is not yet supported for the selected chain'
-        );
-      } else {
-        console.log(`Other error - ${JSON.stringify(commandResponse)}`);
       }
+    } catch (error) {
+      console.log('Error handling command');
+      console.log(error);
     }
   }
 });
