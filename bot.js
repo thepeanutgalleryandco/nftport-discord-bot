@@ -6,40 +6,27 @@ require('console-stamp')(console, {
 const { getCache, setCache } = require('./modules/redisCache');
 const eris = require('eris');
 const fetch = require('node-fetch');
+const Eris = require('eris');
 
-const PREFIX = '!';
 const bot = new eris.Client(process.env.BOT_TOKEN);
 const commandHandlerForCommandName = {
   DM: {},
   Channel: {},
 };
 
-// Function return message to Discord
-function returnMessage(_messageType, _channel, _message) {
-  console.log(`${_channel}: ${_message}`);
-
-  // Message in DM
-  if (_messageType === 'DM') {
-    return bot.createMessage(_channel, _message);
-  } // Message in channel
-  if (_messageType === 'Channel') {
-    return _channel.createMessage(_message);
-  }
-}
-
 // BotOwnerOnly Functions
 // Function for adding a contract and chain for a specific server when !addContract is used
 commandHandlerForCommandName.Channel.addcontract = {
   botOwnerOnly: true,
-  execute: async (_msg, _messageType, _args) => {
-    const contractChain = _args[0].toLocaleLowerCase();
-    const contractAddress = _args[1];
-    const url = contractChain === 'ethereum' || contractChain === 'polygon'
-      ? `https://api.nftport.xyz/v0/nfts/${contractAddress}?chain=${contractChain}&page_number=1&page_size=50&include=rarity&refresh_metadata=false`
-      : `https://api.nftport.xyz/v0/solana/nfts/${contractAddress}`;
-
+  execute: async (_interaction, _args) => {
+    const contractChain = _args[0].value.toLowerCase();
+    const contractAddress = _args[1].value;
+    const url =
+      contractChain === 'ethereum' || contractChain === 'polygon'
+        ? `https://api.nftport.xyz/v0/nfts/${contractAddress}?chain=${contractChain}&page_number=1&page_size=50&include=rarity&refresh_metadata=false`
+        : `https://api.nftport.xyz/v0/solana/nfts/${contractAddress}`;
     console.log(
-      `ServerID: ${_msg.channel.guild.id} ChannelID:${_msg.channel.id} Fetching contract ${contractAddress} on ${contractChain} chain`,
+      `ServerID: ${_interaction.channel.guild.id} ChannelID:${_interaction.channel.id} Fetching contract ${contractAddress} on ${contractChain} chain`
     );
 
     return fetch(url, {
@@ -57,141 +44,61 @@ commandHandlerForCommandName.Channel.addcontract = {
 // Function for removing a contract and chain for a specific server when !removeContract is used
 commandHandlerForCommandName.Channel.removecontract = {
   botOwnerOnly: true,
-  execute: async (_msg, _messageType, _args) => {
-    const contractChain = _args[0].toLowerCase();
-    const contractAddress = _args[1];
-    let monitoredContracts = JSON.parse(await getCache(_msg.channel.guild.id));
+  execute: async (_interaction, _args) => {
+    const contractChain = _args[0].value.toLowerCase();
+    const contractAddress = _args[1].value;
+    let monitoredContracts = JSON.parse(
+      await getCache(_interaction.channel.guild.id)
+    );
 
     console.log(
-      `ServerID: ${_msg.channel.guild.id} ChannelID:${_msg.channel.id}  Removing contract ${contractAddress} on ${contractChain} chain`,
+      `ServerID: ${_interaction.channel.guild.id} ChannelID:${_interaction.channel.id}  Removing contract ${contractAddress} on ${contractChain} chain`
     );
 
     // Check if contract and address combination can be found in the server's list of contracts
     if (
-      monitoredContracts === null
-      || monitoredContracts.filter((elem) => (
-        elem.contractAddress === contractAddress
-          && elem.contractChain === contractChain
-      )).length === 0
+      monitoredContracts === null ||
+      monitoredContracts.filter(
+        (elem) =>
+          elem.contractAddress === contractAddress &&
+          elem.contractChain === contractChain
+      ).length === 0
     ) {
-      return returnMessage(
-        _messageType,
-        _msg.channel,
-        'Contract not found. Please use !help to see command to view all contracts available.',
+      return _interaction.createMessage(
+        'Contract not found. Please use !help to see command to view all contracts available.'
       );
     }
 
     monitoredContracts = monitoredContracts.filter(
-      (elem) => !(
-        elem.contractAddress === contractAddress
-            && elem.contractChain === contractChain
-      ),
+      (elem) =>
+        !(
+          elem.contractAddress === contractAddress &&
+          elem.contractChain === contractChain
+        )
     );
 
-    await setCache(_msg.channel.guild.id, monitoredContracts);
+    await setCache(_interaction.channel.guild.id, monitoredContracts);
 
-    return returnMessage(
-      _messageType,
-      _msg.channel,
-      'Successfully removed contract.',
-    );
-  },
-};
-
-// Public Functions
-// Function for getting help for Channel
-commandHandlerForCommandName.Channel.help = {
-  botOwnerOnly: false,
-  execute: async (_msg, _messageType, _args) => {    
-    //if (_msg.channel.guild.ownerID === _msg.author.id) {
-      console.log(`ServerID: ${_msg.channel.guild.id} ChannelID:${_msg.channel.id} Fetching help menu for owner`);
-
-      returnMessage(_messageType, _msg.channel, {
-        embed: {
-          title: 'Help Menu',
-          fields: [
-            {
-              name: '!addcontract',
-              value:
-                '***!addcontract (Contract_Chain) (Contract_Address / Collection_ID)***\n\nUse this command to add a new contract address to your bot to track rarity and sale stats for.\n\nExample:\n!addcontract ethereum 0x41dEFe83C58bD12e83C115CF5fE18b9F2a9871d4',
-              inline: false,
-            },
-            {
-              name: '!removecontract',
-              value:
-                '***!removecontract (Contract_Chain) (Contract_Address)***\n\nUse this command to remove a contract address from your bot to stop tracking rarity and sale stats for.\n\nExample:\n!removecontract ethereum 0x41dEFe83C58bD12e83C115CF5fE18b9F2a9871d4',
-              inline: false,
-            },
-            {
-              name: '!viewcontracts',
-              value:
-                'Use this command to see all of the contracts that are available to check rarity and sales stats against.',
-              inline: false,
-            },
-            {
-              name: '!rarity',
-              value:
-                '***!rarity (Contract_Chain) (Contract_Address) (Token_ID)***\n\nOnly Ethereum supported at this point in time. Use this command to check the rarity of a specific token of a given contract address on a specific chain.\n\nExample:\n!rarity ethereum 0x41dEFe83C58bD12e83C115CF5fE18b9F2a9871d4 1',
-              inline: false,
-            },
-            {
-              name: '!salesstats',
-              value:
-                '***!salesstats (Contract_Chain) (Contract_Address)***\n\nUse this command to check the sales stats of a specific a given contract address on a specific chain.\n\nExample:\n!salesstats ethereum 0x41dEFe83C58bD12e83C115CF5fE18b9F2a9871d4',
-              inline: false,
-            },
-          ],
-        },
-      });
-    /*} else {
-      console.log(`ServerID: ${_msg.channel.guild.id} ChannelID:${_msg.channel.id}  Fetching help menu for public`);
-
-      returnMessage(_messageType, _msg.channel, {
-        embed: {
-          title: 'Help Menu',
-          fields: [
-            {
-              name: '!viewcontracts',
-              value:
-                'Use this command to see all of the contracts that are available to check rarity and sales stats against.',
-              inline: false,
-            },
-            {
-              name: '!rarity',
-              value:
-                '***!rarity (Contract_Chain) (Contract_Address) (Token_ID)***\n\nOnly Ethereum supported at this point in time. Use this command to check the rarity of a specific token of a given contract address on a specific chain.\n\nExample:\n!rarity ethereum 0x41dEFe83C58bD12e83C115CF5fE18b9F2a9871d4 1',
-              inline: false,
-            },
-            {
-              name: '!salesstats',
-              value:
-                '***!salesstats (Contract_Chain) (Contract_Address)***\\nnUse this command to check the sales stats of a specific a given contract address on a specific chain.\n\nExample:\n!salesstats ethereum 0x41dEFe83C58bD12e83C115CF5fE18b9F2a9871d4',
-              inline: false,
-            },
-          ],
-        },
-      });
-    }*/
+    return _interaction.createMessage('Successfully removed contract.');
   },
 };
 
 // Function for viewing available contracts and chains for a specific server when !viewContracts is used
 commandHandlerForCommandName.Channel.viewcontracts = {
   botOwnerOnly: false,
-  execute: async (_msg, _messageType, _args) => {
+  execute: async (_interaction, _args) => {
     console.log(
-      `ServerID: ${_msg.channel.guild.id} ChannelID:${_msg.channel.id} Fetching contracts available to ${_msg.channel.guild.id}`,
+      `ServerID: ${_interaction.channel.guild.id} ChannelID:${_interaction.channel.id} Fetching contracts available to ${_interaction.channel.guild.id}`
     );
 
     const embed = {};
     const fields = [];
-    const monitoredContracts = JSON.parse(await getCache(_msg.channel.guild.id));
+    const monitoredContracts = JSON.parse(
+      await getCache(_interaction.channel.guild.id)
+    );
 
     // Check if the server can be found in the list and if any contracts have been configured
-    if (
-      monitoredContracts !== null
-      && monitoredContracts.length > 0
-    ) {
+    if (monitoredContracts !== null && monitoredContracts.length > 0) {
       for (const contract of monitoredContracts) {
         fields.push({
           name: 'Name',
@@ -215,27 +122,25 @@ commandHandlerForCommandName.Channel.viewcontracts = {
       embed.title = 'Monitored Contracts';
       embed.fields = fields;
 
-      return returnMessage(_messageType, _msg.channel, { embed });
+      return _interaction.createMessage({ embed });
     }
-    return returnMessage(
-      _messageType,
-      _msg.channel,
-      'No contracts configured yet.',
-    );
+    return _interaction.createMessage('No contracts configured yet.');
   },
 };
 
 // Function for checking rarity of a token on a contract and chain for a specific server when !rarity is used
 commandHandlerForCommandName.Channel.rarity = {
   botOwnerOnly: false,
-  execute: async (_msg, _messageType, _args) => {
-    const contractChain = _args[0].toLowerCase();
-    const contractAddress = _args[1];
-    const tokenID = _args[2];
-    const monitoredContracts = JSON.parse(await getCache(_msg.channel.guild.id));
+  execute: async (_interaction, _args) => {
+    const contractChain = _args[0].value.toLowerCase();
+    const contractAddress = _args[1].value;
+    const tokenID = _args[2].value;
+    const monitoredContracts = JSON.parse(
+      await getCache(_interaction.channel.guild.id)
+    );
 
     console.log(
-      `ServerID: ${_msg.channel.guild.id} ChannelID:${_msg.channel.id}  Fetching rarity for tokenID ${tokenID} for contract ${contractAddress} on ${contractChain} chain`,
+      `ServerID: ${_interaction.channel.guild.id} ChannelID:${_interaction.channel.id}  Fetching rarity for tokenID ${tokenID} for contract ${contractAddress} on ${contractChain} chain`
     );
 
     // Check if chain supports rarity
@@ -252,11 +157,12 @@ commandHandlerForCommandName.Channel.rarity = {
 
     // Check if contract and address combination can be found in the server's list of contracts
     if (
-      monitoredContracts === null
-      || monitoredContracts.filter((elem) => (
-        elem.contractAddress === contractAddress
-          && elem.contractChain === contractChain
-      )).length === 0
+      monitoredContracts === null ||
+      monitoredContracts.filter(
+        (elem) =>
+          elem.contractAddress === contractAddress &&
+          elem.contractChain === contractChain
+      ).length === 0
     ) {
       return {
         response: 'NOK',
@@ -276,7 +182,7 @@ commandHandlerForCommandName.Channel.rarity = {
           'Content-Type': 'application/json',
           Authorization: process.env.NFTPORT_KEY,
         },
-      },
+      }
     )
       .then(async (res) => res.json())
       .catch(async (error) => error);
@@ -286,25 +192,29 @@ commandHandlerForCommandName.Channel.rarity = {
 // Function for checking sales stats of a contract and chain for a specific server when !salesstats is used
 commandHandlerForCommandName.Channel.salesstats = {
   botOwnerOnly: false,
-  execute: async (_msg, _messageType, _args) => {
-    const contractChain = _args[0].toLowerCase();
-    const contractAddress = _args[1];
-    const monitoredContracts = JSON.parse(await getCache(_msg.channel.guild.id));
-    const url = contractChain === 'ethereum' || contractChain === 'polygon'
-      ? `https://api.nftport.xyz/v0/transactions/stats/${contractAddress}?chain=${contractChain}`
-      : `https://api.nftport.xyz/v0/solana/transactions/stats/${contractAddress}`;
+  execute: async (_interaction, _args) => {
+    const contractChain = _args[0].value.toLowerCase();
+    const contractAddress = _args[1].value;
+    const monitoredContracts = JSON.parse(
+      await getCache(_interaction.channel.guild.id)
+    );
+    const url =
+      contractChain === 'ethereum' || contractChain === 'polygon'
+        ? `https://api.nftport.xyz/v0/transactions/stats/${contractAddress}?chain=${contractChain}`
+        : `https://api.nftport.xyz/v0/solana/transactions/stats/${contractAddress}`;
 
     console.log(
-      `ServerID: ${_msg.channel.guild.id} ChannelID:${_msg.channel.id}  Fetching sales stats for for contract ${contractAddress} on ${contractChain} chain`,
+      `ServerID: ${_interaction.channel.guild.id} ChannelID:${_interaction.channel.id}  Fetching sales stats for for contract ${contractAddress} on ${contractChain} chain`
     );
 
     // Check if contract and address combination can be found in the server's list of contracts
     if (
-      monitoredContracts === null
-      || monitoredContracts.filter((elem) => (
-        elem.contractAddress === contractAddress
-          && elem.contractChain === contractChain
-      )).length === 0
+      monitoredContracts === null ||
+      monitoredContracts.filter(
+        (elem) =>
+          elem.contractAddress === contractAddress &&
+          elem.contractChain === contractChain
+      ).length === 0
     ) {
       return {
         response: 'NOK',
@@ -330,73 +240,225 @@ commandHandlerForCommandName.Channel.salesstats = {
 
 // Console log to state bot is ready
 bot.once('ready', async (msg) => {
+  try {
+    await bot.createCommand(
+      {
+        name: 'addcontract',
+        description: 'Add Contract',
+        options: [
+          {
+            type: 3,
+            name: 'chain',
+            description: 'Chain for the contract address',
+            required: true,
+            choices: [
+              {
+                name: 'Ethereum',
+                description: 'The Ethereum Chain',
+                value: 'ethereum',
+              },
+              {
+                name: 'Polygon',
+                description: 'The Polygon Chain',
+                value: 'polygon',
+              },
+              {
+                name: 'Solana',
+                description: 'The Solana Chain',
+                value: 'solana',
+              },
+            ],
+          },
+          {
+            type: 3,
+            name: 'contractaddress',
+            description: 'The contract address to be added',
+            required: true,
+            min_length: 20,
+            max_length: 100,
+          },
+        ],
+      },
+      1
+    );
+
+    await bot.createCommand(
+      {
+        name: 'removecontract',
+        description: 'Remove Contract',
+        options: [
+          {
+            type: 3,
+            name: 'chain',
+            description: 'Chain for the contract address',
+            required: true,
+            choices: [
+              {
+                name: 'Ethereum',
+                description: 'The Ethereum Chain',
+                value: 'ethereum',
+              },
+              {
+                name: 'Polygon',
+                description: 'The Polygon Chain',
+                value: 'polygon',
+              },
+              {
+                name: 'Solana',
+                description: 'The Solana Chain',
+                value: 'solana',
+              },
+            ],
+          },
+          {
+            type: 3,
+            name: 'contractaddress',
+            description: 'The contract address to be removed',
+            required: true,
+            min_length: 20,
+            max_length: 100,
+          },
+        ],
+      },
+      1
+    );
+
+    await bot.createCommand(
+      { name: 'viewcontracts', description: 'View monitored contracts' },
+      1
+    );
+
+    await bot.createCommand(
+      {
+        name: 'rarity',
+        description: 'Rarity of NFT / Token',
+        options: [
+          {
+            type: 3,
+            name: 'chain',
+            description: 'Chain to fetch the rarity information for',
+            required: true,
+            choices: [
+              {
+                name: 'Ethereum',
+                description: 'The Ethereum Chain',
+                value: 'ethereum',
+              },
+              {
+                name: 'Polygon',
+                description: 'The Polygon Chain',
+                value: 'polygon',
+              },
+              {
+                name: 'Solana',
+                description: 'The Solana Chain',
+                value: 'solana',
+              },
+            ],
+          },
+          {
+            type: 3,
+            name: 'contractaddress',
+            description:
+              'The contract address to fetch the rarity information for',
+            required: true,
+            min_length: 20,
+            max_length: 100,
+          },
+          {
+            type: 3,
+            name: 'tokenid',
+            description: 'The tokenID to fetch the rarity information for',
+            required: true,
+            min_length: 1,
+            max_length: 1000,
+          },
+        ],
+      },
+      1
+    );
+
+    await bot.createCommand(
+      {
+        name: 'salesstats',
+        description: 'Sales stats',
+        options: [
+          {
+            type: 3,
+            name: 'chain',
+            description: 'Chain for the contract address',
+            required: true,
+            choices: [
+              {
+                name: 'Ethereum',
+                description: 'The Ethereum Chain',
+                value: 'ethereum',
+              },
+              {
+                name: 'Polygon',
+                description: 'The Polygon Chain',
+                value: 'polygon',
+              },
+              {
+                name: 'Solana',
+                description: 'The Solana Chain',
+                value: 'solana',
+              },
+            ],
+          },
+          {
+            type: 3,
+            name: 'contractaddress',
+            description: 'The contract address to fetch sales stats for',
+            required: true,
+            min_length: 20,
+            max_length: 100,
+          },
+        ],
+      },
+      1
+    );
+  } catch (error) {
+    console.log(error);
+  }
+
   console.log('Bot is online and ready for action!');
 });
 
-// Function to handle messages being sent
-bot.on('messageCreate', async (msg) => {
-  // Do not respond to messages from the bot
-  if (msg.author.bot) return;
+// Function to handle slash commands being sent
+bot.on('interactionCreate', async (interaction) => {
+  if (interaction instanceof Eris.CommandInteraction) {
+    await interaction.defer();
 
-  const { content } = msg;
+    // Check if message is coming in DM or Server Channel
+    const messageType = !interaction.channel.guild ? 'DM' : 'Channel';
 
-  // Check if message is coming in DM or Server Channel
-  const messageType = !msg.channel.guild ? 'DM' : 'Channel';
-
-  if (messageType === 'DM') {
-    return returnMessage(
-      messageType,
-      msg.channel.id,
-      'Bot can only be used from within a server channel',
-    );
-  }
-
-  // Ignore any message that doesn't start with the correct prefix.
-  if (content.startsWith(PREFIX)) {
-    // Extract the parts of the command and the command name
-    const parts = content
-      .split(' ')
-      .map((s) => s.trim())
-      .filter((s) => s);
-    const commandName = parts[0].substr(PREFIX.length).toLocaleLowerCase();
-
-    // Check to see if the command exists for the specific message type
-    const commandHandler = commandHandlerForCommandName[messageType][commandName];
-    const authorIsBotOwner = msg.author.id === msg.channel.guild.ownerID;
-
-    // Invalid command used
-    if (!commandHandler) {
-      if (!msg.channel.guild) {
-        return returnMessage(
-          messageType,
-          msg.channel.id,
-          'Command not in list of commands. Please try !help .',
-        );
-      }
-      return returnMessage(
-        messageType,
-        msg.channel,
-        'Command not in list of commands. Please try !help .',
+    if (messageType === 'DM') {
+      return interaction.createMessage(
+        'Bot can only be used from within a server channel'
       );
     }
+
+    const commandName = interaction.data.name;
+
+    // Check to see if the command exists for the specific message type
+    const commandHandler =
+      commandHandlerForCommandName[messageType][commandName];
+    const authorIsBotOwner =
+      interaction.member.user.id === interaction.channel.guild.ownerID;
 
     // Only allow guild owner to perform admin functions
     /*if (commandHandler.botOwnerOnly && !authorIsBotOwner) {
-      return returnMessage(
-        messageType,
-        msg.channel,
-        'You must be the owner of this server to run this command',
-      );
-    }
-    */
-   
+        return interaction.createMessage('You must be the owner of this server to run this command');
+      }*/
+
     // Separate the command arguments from the command prefix and command name.
-    const args = parts.slice(1);
+    const args = interaction.data.options;
     let commandResponse = {};
 
     try {
       // Execute the command.
-      commandResponse = await commandHandler.execute(msg, messageType, args);
+      commandResponse = await commandHandler.execute(interaction, args);
     } catch (error) {
       console.log('Error handling command');
       console.log(error);
@@ -404,66 +466,72 @@ bot.on('messageCreate', async (msg) => {
 
     // Check response from NFTPort for adding a contract
     if (
-      commandName === 'addcontract'
-      || commandName === 'rarity'
-      || commandName === 'salesstats'
+      commandName === 'addcontract' ||
+      commandName === 'rarity' ||
+      commandName === 'salesstats'
     ) {
+
       if (commandResponse.response === 'OK') {
         if (commandName === 'addcontract') {
-          const monitoredContracts = JSON.parse(await getCache(msg.channel.guild.id));
+          const monitoredContracts = JSON.parse(
+            await getCache(interaction.channel.guild.id)
+          );
 
           /*
             Check if server / guildID exists
               If not, add a new key and array value with the contract object
               If it exists, check if the contract object already exists
               If it does not exist, then add it to the array, otherwise skip over it as it already exists
-          */              
+          */
           if (monitoredContracts === null) {
-            await setCache(msg.channel.guild.id,[
+            await setCache(interaction.channel.guild.id, [
               {
-                contractAddress: args[1],
-                contractChain: args[0],
+                contractAddress: args[1].value,
+                contractChain: args[0].value,
                 contractName:
-                    args[0] === 'ethereum' || args[0] === 'polygon'
-                      ? commandResponse.contract.name
-                      : commandResponse.nfts[0].metadata.collection.name,
+                  args[0].value.toLowerCase() === 'ethereum' ||
+                  args[0].value.toLowerCase() === 'polygon'
+                    ? commandResponse.contract.name
+                    : commandResponse.nfts[0].metadata.collection.name,
               },
             ]);
           } else {
-            const monitoredContractCount = JSON.parse(await getCache(msg.channel.guild.id)).filter((elem) => (
-              elem.contractAddress === args[1]
-                  && elem.contractChain === args[0]
-            )).length;
+            const monitoredContractCount = JSON.parse(
+              await getCache(interaction.channel.guild.id)
+            ).filter(
+              (elem) =>
+                elem.contractAddress === args[1].value &&
+                elem.contractChain === args[0].value
+            ).length;
 
             if (monitoredContractCount === 0) {
               monitoredContracts.push({
-                contractAddress: args[1],
-                contractChain: args[0],
+                contractAddress: args[1].value,
+                contractChain: args[0].value,
                 contractName:
-                  args[0] === 'ethereum' || args[0] === 'polygon'
+                  args[0].value.toLowerCase() === 'ethereum' ||
+                  args[0].value.toLowerCase() === 'polygon'
                     ? commandResponse.contract.name
                     : commandResponse.nfts[0].metadata.collection.name,
-              });              
-                  await setCache(msg.channel.guild.id, monitoredContracts);
+              });
+              await setCache(interaction.channel.guild.id, monitoredContracts);
             }
           }
 
-          return returnMessage(
-            messageType,
-            msg.channel,
+          return interaction.createMessage(
             `Successfully added ${
-              args[0] === 'ethereum' || args[0] === 'polygon'
+              args[0].value.toLowerCase() === 'ethereum' ||
+              args[0].value.toLowerCase() === 'polygon'
                 ? commandResponse.contract.name
                 : commandResponse.nfts[0].metadata.collection.name
-            } to monitored contracts`,
+            } to monitored contracts`
           );
-        } if (commandName === 'rarity') {
+        }
+        if (commandName === 'rarity') {
           // Check if rarity information is available
           if (commandResponse.nft.rarity === null) {
-            return returnMessage(
-              messageType,
-              msg.channel,
-              'Rarity information is not available for this chain, contract address and tokenID combination. Please contract NFTPort team to add rarity information for this contract.',
+            return interaction.createMessage(
+              'Rarity information is not available for this chain, contract address and tokenID combination. Please contract NFTPort team to add rarity information for this contract.'
             );
           }
           const fields = [];
@@ -525,20 +593,19 @@ bot.on('messageCreate', async (msg) => {
 
           // Add collection URL if it exists
           if (
-            commandResponse.contract.metadata.cached_thumbnail_url
-              !== undefined
+            commandResponse.contract.metadata.cached_thumbnail_url !== undefined
           ) {
             embed.author = {
               name: commandResponse.contract.name,
-              icon_url:
-                  commandResponse.contract.metadata.cached_thumbnail_url,
+              icon_url: commandResponse.contract.metadata.cached_thumbnail_url,
             };
           }
 
-          return returnMessage(messageType, msg.channel, {
+          return interaction.createMessage({
             embed,
           });
-        } if (commandName === 'salesstats') {
+        }
+        if (commandName === 'salesstats') {
           const fields = [];
 
           Object.entries(commandResponse.statistics).forEach((statistic) => {
@@ -549,7 +616,7 @@ bot.on('messageCreate', async (msg) => {
             });
           });
 
-          return returnMessage(messageType, msg.channel, {
+          return interaction.createMessage({
             embed: {
               title: 'Sales Stats',
               fields,
@@ -557,63 +624,42 @@ bot.on('messageCreate', async (msg) => {
           });
         }
       } else if (commandResponse.error.code === 'invalid_api_key') {
-        return returnMessage(
-          messageType,
-          msg.channel,
-          'Invalid NFTPort APIKey',
-        );
+        return interaction.createMessage('Invalid NFTPort APIKey');
       } else if (commandResponse.error.code === 'invalid_enumeration') {
-        return returnMessage(
-          messageType,
-          msg.channel,
-          'Invalid NFTPort Supported Chain',
-        );
+        return interaction.createMessage('Invalid NFTPort Supported Chain');
       } else if (commandResponse.error.code === 'invalid_address') {
-        return returnMessage(
-          messageType,
-          msg.channel,
-          'Invalid Contract Address',
-        );
+        return interaction.createMessage('Invalid Contract Address');
       } else if (commandResponse.error.code === 'not_found') {
-
         if (commandName === 'addcontract') {
-          return returnMessage(
-            messageType,
-            msg.channel,
-            'Contract Address Does Not Exist On Selected Chain',
+          return interaction.createMessage(
+            'Contract Address Does Not Exist On Selected Chain'
           );
         } else if (commandName === 'rarity') {
-          return returnMessage(
-            messageType,
-            msg.channel,
-            'TokenID Does Not Exist',
-          );
+          return interaction.createMessage('TokenID Does Not Exist');
         } else if (commandName === 'salesstats') {
-          return returnMessage(
-            messageType,
-            msg.channel,
-            `Sales stats can't be found for contract and chain combination. Please contact NFTPort support.`,
+          return interaction.createMessage(
+            `Sales stats can't be found for contract and chain combination. Please contact NFTPort support.`
           );
         }
       } else if (commandResponse.error.code === 'contract_not_available') {
-        return returnMessage(
-          messageType,
-          msg.channel,
-          'Contract not found. Please use !help to see command to view all contracts available.',
+        return interaction.createMessage(
+          'Contract not found. Please use !help to see command to view all contracts available.'
         );
       } else if (
         commandResponse.error.code === 'chain_not_currently_supported'
       ) {
-        return returnMessage(
-          messageType,
-          msg.channel,
-          'Rarity is not yet supported for the selected chain',
+        return interaction.createMessage(
+          'Rarity is not yet supported for the selected chain'
         );
       } else {
         console.log(`Other error - ${JSON.stringify(commandResponse)}`);
       }
     }
   }
+});
+
+bot.on('guildCreate', async (guild) => {
+  console.log(guild);
 });
 
 bot.on('error', (err) => {
