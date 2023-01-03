@@ -15,7 +15,7 @@ const commandHandlerForCommandName = {
 };
 
 // BotOwnerOnly Functions
-// Function for adding a contract and chain for a specific server when !addContract is used
+// Function for adding a contract and chain for a specific server when /addcontract is used
 commandHandlerForCommandName.Channel.addcontract = {
   botOwnerOnly: true,
   execute: async (_interaction, _args) => {
@@ -34,9 +34,14 @@ commandHandlerForCommandName.Channel.addcontract = {
 
     // Check if contract and address combination can be found in the server's list of contracts
     if (monitoredContracts !== null && monitoredContracts.length > 0) {
-      return _interaction.createMessage(
-        'Already monitoring a contract. First remove the current contract and then add a new one.'
-      );
+      return {
+        response: 'NOK',
+        error: {
+          status_code: -1,
+          code: 'contract_already_available',
+          message: 'Contract already available.',
+        },
+      };
     }
 
     return fetch(url, {
@@ -51,7 +56,7 @@ commandHandlerForCommandName.Channel.addcontract = {
   },
 };
 
-// Function for removing a contract and chain for a specific server when !removeContract is used
+// Function for removing a contract and chain for a specific server when /removecontract is used
 commandHandlerForCommandName.Channel.removecontract = {
   botOwnerOnly: true,
   execute: async (_interaction, _args) => {
@@ -82,7 +87,7 @@ commandHandlerForCommandName.Channel.removecontract = {
   },
 };
 
-// Function for viewing available contracts and chains for a specific server when !viewContracts is used
+// Function for viewing available contracts and chains for a specific server when /viewcontracts is used
 commandHandlerForCommandName.Channel.viewcontracts = {
   botOwnerOnly: false,
   execute: async (_interaction, _args) => {
@@ -127,7 +132,7 @@ commandHandlerForCommandName.Channel.viewcontracts = {
   },
 };
 
-// Function for checking rarity of a token on a contract and chain for a specific server when !rarity is used
+// Function for checking rarity of a token on a contract and chain for a specific server when /rarity is used
 commandHandlerForCommandName.Channel.rarity = {
   botOwnerOnly: false,
   execute: async (_interaction, _args) => {
@@ -179,7 +184,7 @@ commandHandlerForCommandName.Channel.rarity = {
   },
 };
 
-// Function for checking sales stats of a contract and chain for a specific server when !salesstats is used
+// Function for checking sales stats of a contract and chain for a specific server when /salesstats is used
 commandHandlerForCommandName.Channel.salesstats = {
   botOwnerOnly: false,
   execute: async (_interaction, _args) => {
@@ -204,7 +209,8 @@ commandHandlerForCommandName.Channel.salesstats = {
     }
 
     const url =
-      contractChain === 'ethereum' || contractChain === 'polygon'
+      monitoredContracts[0].contractChain === 'ethereum' ||
+      monitoredContracts[0].contractChain === 'polygon'
         ? `https://api.nftport.xyz/v0/transactions/stats/${monitoredContracts[0].contractAddress}?chain=${monitoredContracts[0].contractChain}`
         : `https://api.nftport.xyz/v0/solana/transactions/stats/${monitoredContracts[0].contractAddress}`;
 
@@ -357,11 +363,11 @@ bot.on('interactionCreate', async (interaction) => {
             );
 
             /*
-            Check if server / guildID exists
+              Check if server / guildID exists
               If not, add a new key and array value with the contract object
               If it exists, check if the contract object already exists
               If it does not exist, then add it to the array, otherwise skip over it as it already exists
-          */
+            */
             if (monitoredContracts === null) {
               await setCache(interaction.channel.guild.id, [
                 {
@@ -533,8 +539,17 @@ bot.on('interactionCreate', async (interaction) => {
           return interaction.createMessage(
             'Rarity is not yet supported for the selected chain'
           );
+        } else if (
+          commandResponse.error.code === 'contract_already_available'
+        ) {
+          return interaction.createMessage(
+            'Already monitoring a contract. First remove the current contract and then add a new one.'
+          );
         } else {
           console.log(`Other error - ${JSON.stringify(commandResponse)}`);
+          return interaction.createMessage(
+            'Something went wrong, please contact NFT Support team to investigate.'
+          );
         }
       }
     } catch (error) {
