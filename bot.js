@@ -555,6 +555,9 @@ bot.on('interactionCreate', async (interaction) => {
     } catch (error) {
       console.log('Error handling command');
       console.log(error);
+      return interaction.createMessage(
+        'Something went wrong, please contact NFT Support team to investigate.'
+      );
     }
   }
 });
