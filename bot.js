@@ -262,7 +262,7 @@ bot.once('ready', async (msg) => {
             name: 'contractaddress',
             description: 'The contract address to be added',
             required: true,
-            min_length: 20,
+            min_length: 1,
             max_length: 100,
           },
         ],
