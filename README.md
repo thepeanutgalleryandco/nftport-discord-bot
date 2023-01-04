@@ -4,10 +4,20 @@ Discord bot for NFTPort to Add a contract for monitoring, removing a contract if
 # Steps for usage
 
 ## Setup Discord Bot Permissions
-- Add a new bot to your discord developer account
+- Add a new bot to your discord developer account by going to https://discord.com/developers/applications and adding a new application
+- Add image and description under "General Information"
 - Add all Privileged Gateway Intents under "Bot"
-- Go to OAuth 2 -> URL Generator and click on "Bot" under Scopes, choose "Read Messages / View Channels", "Send Messages" and "Use Slash Commands" under Bot Permissions
-- Share the URL to discord server owners to be able to connect to the bot
+- Reset token to get a bot token under "Bot"
+- Add an image for your bot under "Bot"
+- Go to OAuth 2 -> URL Generator and click on "Bot" under Scopes, choose "Read Messages / View Channels", "Send Messages" and "Use Slash Commands" under Bot Permissions. Copy the "Generated URL".
+- Share the "Generated URL" to discord server owners to be able to connect to the bot
+
+## Bot Commands And Usage
+- /addcontract [chain] [contractAddress]: Add a new contract to the server (Server owner only command)
+- /removecontract : Remove a contract from the server (Server owner only command)
+- /viewcontracts : View contract configured for the server (Public command)
+- /rarity [token] : View rarity of a specific token for the configured contract (Public command)
+- /salesstats : View sales stats for the configured contract (Public command)
 
 ## Download repo and run npm install
 
