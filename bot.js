@@ -338,9 +338,9 @@ bot.on('interactionCreate', async (interaction) => {
       interaction.member.user.id === interaction.channel.guild.ownerID;
 
     // Only allow guild owner to perform admin functions
-    /*if (commandHandler.botOwnerOnly && !authorIsBotOwner) {
+    if (commandHandler.botOwnerOnly && !authorIsBotOwner) {
         return interaction.createMessage('You must be the owner of this server to run this command');
-      }*/
+    }
 
     // Separate the command arguments from the command prefix and command name.
     const args = interaction.data.options;

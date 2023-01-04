@@ -1,22 +1,37 @@
 # nftport-discord-bot
-Discord bot for NFTPort to fetch Rarity information and Sales Stats
+Discord bot for NFTPort to Add a contract for monitoring, removing a contract if needed, viewing a contract, fetching rarity information and fetching sales stats.
 
 # Steps for usage
 
 ## Setup Discord Bot Permissions
 - Add a new bot to your discord developer account
 - Add all Privileged Gateway Intents under "Bot"
-- Go to OAuth 2 -> URL Generator and click on "Bot" under Scopes, choose "Read Messages / View Channels" and "Send Messages" under Bot Permissions
-- Share the URL to discord owners to be able to connect to the bot
+- Go to OAuth 2 -> URL Generator and click on "Bot" under Scopes, choose "Read Messages / View Channels", "Send Messages" and "Use Slash Commands" under Bot Permissions
+- Share the URL to discord server owners to be able to connect to the bot
 
 ## Download repo and run npm install
 
 ## Configure .env file
 Copy env_example to .env and fill in the fields
 
+- APP_VERSION: Version of the bot
 - BOT_TOKEN: Discord bot token
-- NFTPORT_APIKEY: NFTPort APIKey to be used for the Bot
-- VERSION: Version of the bot
+- NFTPORT_KEY: NFTPort APIKey to be used for the Bot
+- NODE_ENV: The environment of the bot
+- REDIS_HOST: Redis hostname / IP
+- REDIS_PASSWORD: Redis user password
+- REDIS_PORT: Redis host port
+- REDIS_USERNAME: Redis username
+
+### Example
+APP_VERSION=1.3.3
+BOT_TOKEN=MAasldmasdlm21em.1i2en1.2312i3-123i123n1i-123-3123i_123k123m1k3
+NFTPORT_KEY=123456789-1234-1234-1234-1234124i14im1i3
+NODE_ENV=production
+REDIS_HOST=localhost
+REDIS_PASSWORD=redispassword
+REDIS_PORT=6379
+REDIS_USERNAME=redisusername
 
 ## Run bot
 - Development - npm run dev
